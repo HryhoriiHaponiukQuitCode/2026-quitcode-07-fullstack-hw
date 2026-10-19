@@ -328,8 +328,9 @@ grant execute on function public.set_member_role(uuid, text) to authenticated;
 - **`set search_path = ''`** і повні імена (`public.profiles`) — інакше функцію з правами власника можна підмінити
   власним об'єктом з тим самим ім'ям.
 - **Повідомлення помилок** Server Action перекладає в тексти з AC PM. Розрізняйте їх за `error.message`
-  (`FORBIDDEN`, `LAST_ADMIN`, `INVALID_ROLE`, `NOT_FOUND`), а не за `error.code`: там SQLSTATE (`42501`, `23514`…), і
-  `23514` дає й звичайне порушення `check`.
+  (`FORBIDDEN`, `LAST_ADMIN`, `INVALID_ROLE`, `NOT_FOUND`, а з перевіркою собі — `SELF_ROLE`), а не за `error.code`:
+  там SQLSTATE (`42501`, `23514`…), і `23514` дає й звичайне порушення `check`, а `42501` — і `FORBIDDEN`, і
+  `SELF_ROLE`.
 - **Альтернатива** — Server Action з `requireRole("admin")` і admin-клієнтом. Вона теж правильна, якщо перевірка
   стоїть до admin-клієнта. Але тоді прямий виклик з консолі браузера захищає лише column grant, а «останнього
   адміністратора» доводиться перевіряти в коді без блокування. Вибір — тема для ADR.

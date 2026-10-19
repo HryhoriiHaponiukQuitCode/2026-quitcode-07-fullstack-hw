@@ -1,9 +1,9 @@
 # Покрокова інструкція: трек розробника
 
 Ви продовжуєте **своє репо** `<я>/<team-slug>` з WS6: той самий Supabase, той самий Vercel, ruleset `solo-main`,
-`/requirements-sync`, OpenSpec. Нового шаблону немає. Нові файли (архітектурні правила, шаблон `DESIGN.md`, приклади)
-ви копіюєте з [`materials/`](../materials/README.md) цього репозиторію. Цього тижня у вашому застосунку з'являються два
-шари:
+`/requirements-sync`, OpenSpec. Нового репо й нового шаблону немає. Нові файли (архітектурні правила, шаблон
+`DESIGN.md`, приклади) ви копіюєте з [`materials/`](../materials/README.md) цього репозиторію. Цього тижня у вашому
+застосунку з'являються два шари:
 
 - **дизайн-система:** `DESIGN.md`, семантичні токени в `globals.css`, компоненти в `src/components/ui`, правило
   `check:design` в окремому workflow `architecture.yml`;
@@ -416,7 +416,7 @@ Server Action — публічний POST-ендпойнт. Її можна ви
 // Схема й політики — як у рецепті bookings з auth-guide.md.
 it("AC-ROOM-11: учасник не змінює тему чужого бронювання", async () => {
   const rows = await t.asUser(MEMBER_2, "update public.bookings set topic = 'Чуже' where id = $1 returning id", [BOOKING_OF_1]);
-  expect(rows).toHaveLength(0); // RLS: чужий рядок для update не видно
+  expect(rows).toHaveLength(0); // RLS (select і update): чужий рядок для update не видно
   const [b] = await t.asService<{ topic: string }>("select topic from public.bookings where id = $1", [BOOKING_OF_1]);
   expect(b.topic).toBe("Планування"); // дані не змінились
 });
@@ -444,13 +444,18 @@ GRANT чи перевірку, яку він охороняє, запусти np
 
 Зелений тест, який лишається зеленим без політики, AC не покриває. Тому:
 
-1. **Локально, для кожного відмовного AC PR:** приберіть політику чи перевірку → `npm test` → тест червоний →
-   поверніть. Результат — таблиця в описі PR:
+1. **Локально, для кожного відмовного AC PR:** послабте політику (умову — до `true`) чи приберіть перевірку →
+   `npm test` → тест червоний → поверніть. Результат — таблиця в описі PR:
 
    | AC | Що тимчасово прибрали | Який тест упав |
    |---|---|---|
-   | AC-ROOM-11 | умову власника в політиці `bookings_update_own` | `tests/db/bookings.test.ts` › AC-ROOM-11 |
+   | AC-ROOM-11 | умову власника: `using (true)` у `bookings_select_own_or_admin` і `using (true) with check (true)` у `bookings_update_own` | `tests/db/bookings.test.ts` › AC-ROOM-11 |
    | AC-ROOM-12 | тимчасовий `grant update (topic, status)` | `tests/db/bookings.test.ts` › AC-ROOM-12 |
+
+   UPDATE з WHERE застосовує й політику SELECT: якщо послабити лише `bookings_update_own`, тест AC-ROOM-11 лишається
+   зеленим — чужий рядок ховає ще й select. Тест, який не червоніє, часто охороняють дві політики: послабте обидві
+   або знайдіть, яку саме він перевіряє. Послаблюйте умову до `true`, а не видаляйте політику: без політики RLS
+   забороняє все, і тест теж лишиться зеленим.
 
 2. **У CI, щонайменше для двох відмовних AC за зріз** — видимий доказ у PR:
 

@@ -19,7 +19,6 @@
 // /auth/… у шаблоні вже публічний (PUBLIC_PATHS у src/lib/supabase/proxy.ts): людина ще не увійшла.
 // Button — з вашої дизайн-системи (завдання B).
 
-import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { activate } from "./actions";
 
@@ -27,10 +26,8 @@ const one = (value: string | string[] | undefined) => (typeof value === "string"
 
 export default async function ConfirmPage({ searchParams }: PageProps<"/auth/confirm">) {
   const params = await searchParams;
-  const tokenHash = one(params.token_hash);
-  const type = one(params.type);
-  // Без токена активувати нічого — одразу на вхід з тим самим повідомленням, що й для недійсного посилання.
-  if (!tokenHash || !type) redirect("/login?error=link");
+  // Сторінку показуємо для будь-якого посилання, навіть неповного: перевіряє лише дія activate після натискання.
+  // Без token_hash чи з невідомим type вона веде на /login?error=link — те саме повідомлення, що й для недійсного.
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-6 py-16">
@@ -40,8 +37,8 @@ export default async function ConfirmPage({ searchParams }: PageProps<"/auth/con
       </p>
       {/* Значення з адреси — лише в прихованих полях; React екранує їх сам. */}
       <form action={activate}>
-        <input type="hidden" name="token_hash" value={tokenHash} />
-        <input type="hidden" name="type" value={type} />
+        <input type="hidden" name="token_hash" value={one(params.token_hash)} />
+        <input type="hidden" name="type" value={one(params.type)} />
         <input type="hidden" name="next" value={one(params.next)} />
         <Button type="submit">Активувати акаунт</Button>
       </form>
