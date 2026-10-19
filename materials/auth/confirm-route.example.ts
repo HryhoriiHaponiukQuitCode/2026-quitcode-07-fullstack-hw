@@ -7,10 +7,10 @@
 // робить auth.admin.generateLink({ type: "invite", email }) і бере data.properties.hashed_token. Дія повертає ШЛЯХ
 //   /auth/confirm?token_hash=<hashed_token>&type=invite&next=/account/password
 // а клієнтський компонент додає window.location.origin і показує «Скопіювати». Листа немає: адміністратор передає
-// посилання сам. Посилання — живий вхід в акаунт: одноразове, діє обмежений час (otp_expiry у supabase/config.toml).
-// Справжнє посилання не вставляйте в issue, PR чи на знімок екрана.
-// Запасний шлях, якщо type "invite" у вашому проєкті не спрацює: admin.createUser({ email, email_confirm: true }) +
-// generateLink({ type: "recovery", email }) — цей маршрут приймає обидва типи.
+// посилання сам. Посилання — живий вхід в акаунт: одноразове (повторний перехід → 403 otp_expired), діє обмежений
+// час (otp_expiry у supabase/config.toml). Справжнє посилання не вставляйте в issue, PR чи на знімок екрана.
+// Перевірено 19.10 на хмарному Supabase з enable_signup = false: invite працює. Запасний шлях (не знадобився):
+// admin.createUser({ email, email_confirm: true }) + generateLink({ type: "recovery", email }) — маршрут приймає обидва.
 //
 // /auth/… у шаблоні вже публічний (PUBLIC_PATHS у src/lib/supabase/proxy.ts), а /account/password — ні: після
 // verifyOtp у людини є сесія, тож proxy її пропустить. На /account/password Server Action робить getClaims() і

@@ -25,7 +25,7 @@
 ## Шлях 1: Claude Design
 
 **Claude Design** — тип артефакту в claude.ai: його можна створити в чаті, у Claude Code і на вкладці Artifacts.
-Design systems у Claude Design зараз — **beta на планах Pro, Max, Team і Enterprise**. Окремий застарілий інтерфейс
+Design systems у Claude Design зараз — **beta на планах Pro, Max, Team і Enterprise**. Окремий сайт
 `claude.ai/design` закривається 14.12.2026, тож ми працюємо лише з артефактами.
 
 **Що всередині артефакту Design System:**
@@ -94,17 +94,17 @@ Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts. У �
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.985 0.004 200);
-  --foreground: oklch(0.24 0.02 220);
-  --primary: oklch(0.46 0.085 200);
-  --primary-foreground: oklch(0.985 0.004 200);
+  --background: oklch(<L> <C> <H>);           /* ваші значення з DESIGN.md */
+  --foreground: oklch(<L> <C> <H>);
+  --primary: oklch(<L> <C> <H>);
+  --primary-foreground: oklch(<L> <C> <H>);
   /* … card, popover, secondary, muted, accent, destructive, border, input, ring, статуси домену */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.19 0.015 220);
-    --foreground: oklch(0.95 0.008 200);
+    --background: oklch(<L> <C> <H>);
+    --foreground: oklch(<L> <C> <H>);
     /* … ті самі імена, інші значення */
   }
 }
@@ -126,7 +126,7 @@ body {
 }
 ```
 
-Значення вище — приклад формату, а не ваша палітра.
+`<L> <C> <H>` — ваші значення з `DESIGN.md` (світлота, насиченість, відтінок). Палітра демо чи колеги — 0 за B.
 
 - **Три місця для одного токена.** `:root` (світла тема) → темна тема → `--color-<назва>` у `@theme inline`. Тоді
   Tailwind створює утиліти `bg-<назва>`, `text-<назва>`, `border-<назва>`. Новий токен «статус: на розгляді» — це
@@ -155,6 +155,8 @@ npx shadcn@latest init -d --no-monorepo
 npx shadcn@latest add input label card table badge dialog select alert -y
 ```
 
+- Якщо `@latest` уже новіший і поводиться інакше, запустіть ті самі команди з `npx shadcn@4.22.1`. Ця версія
+  перевірена; її поведінка за замовчуванням уже раз змінювалась (Base UI з липня 2026).
 - `init -d` бере налаштування за замовчуванням (стиль `base-nova`, Base UI). Він знаходить Next.js і Tailwind 4 без
   PostCSS. Створює `components.json` (аліаси `@/components/ui`, `@/lib/utils`), `src/lib/utils.ts` (функція `cn`),
   `src/components/ui/button.tsx`. Додає залежності `@base-ui/react`, `class-variance-authority`, `cn`, `lucide-react`,

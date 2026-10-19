@@ -134,6 +134,9 @@ npx shadcn@latest init -d --no-monorepo
 npx shadcn@latest add input label card table badge dialog select alert -y
 ```
 
+Перевірено 19.10 з CLI 4.22.1. Якщо `@latest` поводиться інакше (питає інше чи падає), запустіть ту саму команду з
+`npx shadcn@4.22.1`.
+
 `init` створює `components.json`, `src/lib/utils.ts`, `src/components/ui/button.tsx` і додає залежності. Але він
 **переписує `src/app/globals.css`** своєю нейтральною палітрою, і в ньому дві пастки. Тому одразу після `init`:
 
@@ -418,12 +421,15 @@ GRANT чи перевірку, яку він охороняє, запусти np
 
    ```bash
    git commit -am "mutation: прибрати перевірку ролі в <функції/дії> (AC-ROOM-07)"
-   git push                 # job app червоний: упав тест AC-ROOM-07
+   git push
+   # Дочекайтеся в Actions, поки job app стане червоним (упав саме тест AC-ROOM-07), і скопіюйте адресу прогону.
    git revert --no-edit HEAD
    git push                 # знову зелений
    ```
 
-   Посилання на червоний прогін — в описі PR. Мутуйте лише **нову** міграцію цього PR (ще не в `main`) або код дії.
+   **Revert — лише після червоного прогону.** `ci.yml` скасовує попередній прогін PR на кожен новий push
+   (`cancel-in-progress`): якщо запушити revert одразу, замість червоного прогону буде «cancelled», і доказу немає.
+   Посилання на червоний прогін (`…/actions/runs/N`) — в описі PR. Мутуйте лише **нову** міграцію цього PR (ще не в `main`) або код дії.
    Застосовану міграцію змінювати не можна навіть тимчасово: `db-check` впаде з `CHANGED`. Squash and merge прибере
    обидва коміти з `main`, а в PR вони лишаться як доказ.
 
@@ -467,8 +473,8 @@ GRANT чи перевірку, яку він охороняє, запусти np
 доведіть, що воно ловить порушення:
 
 - **червоний прогін:** у PR задачі — коміт з навмисним порушенням (наприклад, `import { createAdminClient } from
-  "@/lib/supabase/admin"` у файлі з `"use client"` або `process.env.SUPABASE_SECRET_KEY` у сторінці) → червоний job
-  «Секретний ключ лише на сервері» → revert;
+  "@/lib/supabase/admin"` у файлі з `"use client"` або `process.env.SUPABASE_SECRET_KEY` у сторінці; назва функції —
+  ваша) → дочекайтеся червоного job «Секретний ключ лише на сервері» і скопіюйте адресу прогону → лише потім revert;
 - **або вивід скрипта** на цьому порушенні в описі PR.
 
 Можна написати власне правило: «жодного `getSession()` у `src/`», «жодного `middleware.ts`», «кожен `actions.ts`
