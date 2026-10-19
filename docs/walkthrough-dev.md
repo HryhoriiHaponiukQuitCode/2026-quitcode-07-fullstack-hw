@@ -23,9 +23,10 @@
 латиницею (наприклад, `room-rights`), `AC-<AREA>-<NN>` — ID критерію PM.
 
 Команди — для Git Bash на Windows і терміналу macOS. У Windows PowerShell 5.1: `curl.exe` замість `curl`, без `&&`
-(команди по черзі), `Copy-Item` замість `cp`.
+(команди по черзі), `Copy-Item` замість `cp`, а команду з `\` наприкінці рядка пишіть одним рядком (`\` у PowerShell
+не переносить команду; перенесення там — backtick `` ` ``).
 
-**Бюджет треку: 12–15 годин за тиждень** (без бонусу).
+**Бюджет треку: 13–16 годин за тиждень** (кроки 0–12, без бонусу).
 
 **Порядок важливий.** Дизайн-система від вимог PM не залежить: робіть її 20–23.10, поки PM пише вимоги зрізу 2. Права
 зрізу (C) — після вимог, із 24.10.
@@ -92,7 +93,9 @@ npm run check:design     # на шаблоні: 11 порушень у 2 фай�
 npm run check:boundary   # на шаблоні: OK
 ```
 
-PowerShell: `$B = "https://raw.githubusercontent.com/…/materials"` і `curl.exe -sLo …`.
+PowerShell: `$B = "https://raw.githubusercontent.com/koldovsky/2026-quitcode-07-fullstack-hw/main/materials"`,
+`curl.exe -sLo …`, `New-Item -ItemType Directory -Force .github/workflows` замість `mkdir -p`, а `npm pkg set …` —
+одним рядком.
 
 `architecture.yml` — **окремий** workflow із двома jobs: «Дизайн-система: лише токени» і «Секретний ключ лише на
 сервері». `ci.yml` і назви його jobs не чіпайте: на них тримається ruleset. Нові jobs не є обов'язковими перевірками
@@ -106,6 +109,11 @@ ruleset-у, тож доказ — зелений прогін у PR і на `mai
   й тону» PM (або з брифу, якщо PM його не написав). Потім агент переносить його `project/README.md` і `tokens.json`
   у `DESIGN.md` і `globals.css`.
 - **AI-чат або агент** — за шаблоном, який ви щойно поклали в `DESIGN.md`.
+
+Якщо PM уже опублікував «Вигляд і тон» і написав про це в чаті команди, спершу зробіть `/requirements-sync` і PR
+«Оновлення вимог» (як у кроці 3), щоб розділ з'явився в `requirements/product.md`. Вимоги потрапляють у ваше репо
+лише так: issue PM напряму агенту не давайте. Розділ, який з'явився після злиття PR дизайн-системи, можна перенести
+пізніше окремим PR, за бажанням.
 
 Промпт агенту для другого шляху (Claude Code чи Cursor, у вашому репо):
 
@@ -127,9 +135,15 @@ DESIGN.md зараз — порожній шаблон дизайн-систем
 
 ### 2.3 shadcn/ui і токени в `globals.css`
 
-Перевірено на налаштуванні шаблону (Tailwind 4 через `@tailwindcss/turbopack`, без PostCSS):
+Перевірено на налаштуванні шаблону (Tailwind 4 через `@tailwindcss/turbopack`, без PostCSS).
+
+**Перед `init` закомітьте зроблене** (скрипти, `architecture.yml`, `package.json` зі скриптами `check:*`,
+`DESIGN.md`, знімки `docs/img/ws7-before-*`): `--dry-run` в `init` немає, і якщо щось піде не так, `git restore .` і
+`git clean -fd` повернуть гілку до цього коміту без втрат.
 
 ```bash
+git add -A
+git commit -m "Design system: materials, DESIGN.md, before screenshots"
 npx shadcn@latest init -d --no-monorepo
 npx shadcn@latest add input label card table badge dialog select alert -y
 ```
@@ -138,25 +152,34 @@ npx shadcn@latest add input label card table badge dialog select alert -y
 `npx shadcn@4.22.1`.
 
 `init` створює `components.json`, `src/lib/utils.ts`, `src/components/ui/button.tsx` і додає залежності. Але він
-**переписує `src/app/globals.css`** своєю нейтральною палітрою, і в ньому дві пастки. Тому одразу після `init`:
+**переписує `src/app/globals.css`** своєю нейтральною палітрою, і в ньому три пастки. Тому одразу після `init`:
 
-1. Замініть значення в `:root` і в темній темі **своїми** токенами з `DESIGN.md`. Темна тема — у
-   `@media (prefers-color-scheme: dark)`, як було в шаблоні.
-2. **Видаліть рядок `@custom-variant dark (&:is(.dark *));`.** Він перемикає `dark:` на клас `.dark`, а ваша тема
+1. **Темна тема — у `@media (prefers-color-scheme: dark)`, а не в `.dark { … }`.** `init` кладе темні значення в блок
+   `.dark`, а блок `@media` шаблону прибирає. Клас `.dark` ніхто не ставить, тож такі значення не діють ніколи, а
+   `dark:`-класи компонентів за системною темою діють — виходить суміш. Перенесіть темні значення в
+   `@media (prefers-color-scheme: dark) { :root { … } }` і видаліть блок `.dark`.
+2. Замініть значення в `:root` і в темній темі **своїми** токенами з `DESIGN.md`.
+3. **Видаліть рядок `@custom-variant dark (&:is(.dark *));`.** Він перемикає `dark:` на клас `.dark`, а ваша тема
    слідує за системою. Без цього рядка вбудований `dark:` Tailwind 4 теж слідує за системою, і `dark:`-класи
    компонентів працюють.
-3. **Виправте `--font-sans: var(--font-sans)`** у `@theme inline` на `var(--font-geist-sans), ui-sans-serif,
+4. **Виправте `--font-sans: var(--font-sans)`** у `@theme inline` на `var(--font-geist-sans), ui-sans-serif,
    system-ui, sans-serif`. Самопосилання губить шрифт Geist.
-4. Залиште `@import "tw-animate-css";` і `@import "shadcn/tailwind.css";` — їх потребують компоненти.
-5. Приберіть `font-family: Arial, Helvetica, sans-serif` у `body`, якщо він лишився.
+5. Залиште `@import "tw-animate-css";` і `@import "shadcn/tailwind.css";` — їх потребують компоненти.
+6. Залиште `@layer base` з `* { border-color: var(--border); }`: у Tailwind 4 межа за замовчуванням — колір тексту, а
+   Table і Card ставлять `border-b`/`border-t` без кольору.
+7. Приберіть `font-family: Arial, Helvetica, sans-serif` у `body`, якщо він лишився.
+
+Пізніший `shadcn add` компонента з власними CSS-змінними (наприклад, sidebar чи chart) знову додає блок `.dark` і
+рядок `@custom-variant dark` — приберіть їх так само. Компоненти зі списку вище `globals.css` не змінюють.
 
 Промпт:
 
 ```text
 Після shadcn init перепиши src/app/globals.css за DESIGN.md: значення :root і @media (prefers-color-scheme: dark)
-— наші токени; у @theme inline — --color-* на кожен токен і --radius-*; --font-sans — var(--font-geist-sans) з
-системним запасом; видали @custom-variant dark; залиш @import "tw-animate-css" і "shadcn/tailwind.css"; жодного
-font-family: Arial. Потім npm run build і npm run lint.
+— наші токени; темні значення з блоку .dark перенеси в @media (prefers-color-scheme: dark) і видали блок .dark;
+у @theme inline — --color-* на кожен токен і --radius-*; --font-sans — var(--font-geist-sans) з системним запасом;
+видали @custom-variant dark; залиш @import "tw-animate-css" і "shadcn/tailwind.css"; залиш @layer base з
+* { border-color: var(--border) }; жодного font-family: Arial. Потім npm run build і npm run lint.
 ```
 
 ### 2.4 Сторінки без сирих кольорів
@@ -287,7 +310,9 @@ design.md — розділи:
 з умовою й AC ID; column grants — які колонки користувач НЕ змінює (роль, статус, власник); функції бази для
 привілейованих дій (security definer лише в private, set search_path = ''); зміна набору ролей — порядок drop-first.
 ## Auth — де перевіряється вхід і роль: proxy лише перенаправляє (UX); кожна Server Action і Route Handler — getClaims()
-і роль з profiles до запису; чи потрібен admin-клієнт (SUPABASE_SECRET_KEY) і чому; роль ніколи з user_metadata.
+і роль з profiles до запису (крім дій, що сесію створюють: вхід і активація за посиланням — там verifyOtp чи
+signInWithPassword, а next — через safeNextPath); чи потрібен admin-клієнт (SUPABASE_SECRET_KEY) і чому; роль ніколи
+з user_metadata.
 Кожне рішення — з AC ID. Рішення, які мають альтернативи (роль у таблиці чи в JWT, функція бази чи Server Action), —
 кандидати в ADR.
 tasks.md — вертикальні задачі (міграція + дія + сторінка + тести), кожна з «Done when: AC-…»; щонайменше дві задачі.
@@ -321,7 +346,9 @@ asService; прибери поля й кроки демо (divisions, positions,
 anon без sub. Якщо наші політики використовують auth.jwt() — допиши його в SHIM. Міграцій не змінюй.
 ```
 
-В описі PR: «`tests/db/supabase-pglite.ts` взято з <постійне посилання на файл у демо> і адаптовано». Межа емуляції:
+В описі PR: «`tests/db/supabase-pglite.ts` взято з <постійне посилання на файл у демо> і адаптовано» і рядок «Поза
+межами типу «Реалізація» свідомо (домашка WS7, C): package.json, package-lock.json (PGlite)» — ним відповідайте на
+попередження CodeRabbit «Тип PR і межі змін». Межа емуляції:
 Auth, Data API і JWT тут спрощені (`auth.uid()` читає `request.jwt.claim.sub`). Налаштування хмарного проєкту
 (реєстрація, адреси) тест бази не перевіряє.
 
@@ -347,7 +374,9 @@ revoke all from anon, authenticated; явні grant лише на потрібн
   `profiles_role_check` → `update` наявних даних → новий `default` → новий `profiles_role_check`. Нові ролі в
   `supabase/demo-users.json` — у тому самому PR, після merge і зеленого `db-deploy` — `npm run users:demo`.
 - **Захист останнього адміністратора**, якщо в зрізі змінюють ролі: функція не знімає роль `admin` з останнього
-  адміністратора (рецепт — у [гайді](auth-guide.md#функція-бази-для-привілейованої-дії)).
+  адміністратора (рецепт — у [гайді](auth-guide.md#функція-бази-для-привілейованої-дії)). Чи може людина змінити
+  роль сама собі, вирішує матриця PM: якщо там «власну роль не змінює ніхто», функція відмовляє й на це (перевірка
+  `p_target = auth.uid()` у тому самому рецепті), і на це теж потрібен тест.
 
 ### 7.3 Server Actions і Route Handlers з перевіркою
 
@@ -362,13 +391,16 @@ Server Action — публічний POST-ендпойнт. Її можна ви
 3) запис — серверним клієнтом користувача (діють RLS і GRANT); admin-клієнт (src/lib/supabase/admin.ts) — лише якщо
    design.md каже, що він потрібен, і лише ПІСЛЯ кроків 1–2;
 4) вхідні дані перевіряй на сервері (id чужого об'єкта не довіряй — RLS або умова власника).
+Виняток з кроків 1–2 — дії, що сесію створюють (вхід, активація за посиланням /auth/confirm): claims там ще немає,
+вхід перевіряє signInWithPassword чи verifyOtp, а next — лише через safeNextPath.
 Сторінки: компоненти з @/components/ui, тексти порожніх станів і помилок — дослівно з AC.
 Не чіпай proxy.ts як захист: він лише перенаправляє на /login.
 ```
 
 Якщо ваш зріз запрошує користувачів, потрібен Admin API. Як це зробити — `admin.ts`, `generateLink`, `/auth/confirm`
-і `/account/password` — описано в [гайді](auth-guide.md#запрошення-посиланням) і в
-[`materials/auth/confirm-route.example.ts`](../materials/auth/confirm-route.example.ts) з
+і `/account/password` — описано в [гайді](auth-guide.md#запрошення-посиланням) і в прикладах
+[`confirm-page.example.tsx`](../materials/auth/confirm-page.example.tsx) (сторінка «Активувати акаунт»),
+[`confirm-actions.example.ts`](../materials/auth/confirm-actions.example.ts) (дія з `verifyOtp`) і
 [`safe-next.example.ts`](../materials/auth/safe-next.example.ts) (перевірка `next` і її тест).
 
 ### 7.4 Тести відмов
@@ -393,6 +425,8 @@ it("AC-ROOM-12: учасник не скасовує бронювання, зм�
   await expect(
     t.asUser(MEMBER_1, "update public.bookings set status = 'cancelled' where id = $1", [BOOKING_OF_1]),
   ).rejects.toThrow(/permission denied/); // column grant: статус не оновлюється
+  const [b] = await t.asService<{ status: string }>("select status from public.bookings where id = $1", [BOOKING_OF_1]);
+  expect(b.status).toBe("confirmed"); // дані не змінились
 });
 ```
 
@@ -415,7 +449,8 @@ GRANT чи перевірку, яку він охороняє, запусти np
 
    | AC | Що тимчасово прибрали | Який тест упав |
    |---|---|---|
-   | AC-ROOM-06 | умову власника в політиці `bookings_update_own` | `tests/db/bookings.test.ts` › AC-ROOM-06 |
+   | AC-ROOM-11 | умову власника в політиці `bookings_update_own` | `tests/db/bookings.test.ts` › AC-ROOM-11 |
+   | AC-ROOM-12 | тимчасовий `grant update (topic, status)` | `tests/db/bookings.test.ts` › AC-ROOM-12 |
 
 2. **У CI, щонайменше для двох відмовних AC за зріз** — видимий доказ у PR:
 
@@ -429,9 +464,9 @@ GRANT чи перевірку, яку він охороняє, запусти np
 
    **Revert — лише після червоного прогону.** `ci.yml` скасовує попередній прогін PR на кожен новий push
    (`cancel-in-progress`): якщо запушити revert одразу, замість червоного прогону буде «cancelled», і доказу немає.
-   Посилання на червоний прогін (`…/actions/runs/N`) — в описі PR. Мутуйте лише **нову** міграцію цього PR (ще не в `main`) або код дії.
-   Застосовану міграцію змінювати не можна навіть тимчасово: `db-check` впаде з `CHANGED`. Squash and merge прибере
-   обидва коміти з `main`, а в PR вони лишаться як доказ.
+   Посилання на червоний прогін (`…/actions/runs/N`) — в описі PR. Мутуйте лише **нову** міграцію цього PR (ще не
+   в `main`) або код дії. Застосовану міграцію змінювати не можна навіть тимчасово: `db-check` впаде з `CHANGED`.
+   Squash and merge прибере обидва коміти з `main`, а в PR вони лишаться як доказ.
 
 ### 7.6 PR задачі
 
@@ -478,8 +513,10 @@ GRANT чи перевірку, яку він охороняє, запусти np
 - **або вивід скрипта** на цьому порушенні в описі PR.
 
 Можна написати власне правило: «жодного `getSession()` у `src/`», «жодного `middleware.ts`», «кожен `actions.ts`
-викликає `getClaims()`». Це новий job у тому самому `architecture.yml` і скрипт у `scripts/`. ADR посилається на
-правило.
+викликає `getClaims()`» (крім дій, що сесію створюють: вхід, активація за посиланням). Це новий job у тому самому
+`architecture.yml` і скрипт у `scripts/`. ADR посилається на правило. В описі такого PR — рядок «Поза межами типу
+«Реалізація» свідомо (домашка WS7, D): scripts/…, .github/workflows/architecture.yml»: ним відповідайте на
+попередження CodeRabbit «Тип PR і межі змін».
 
 **Доказ:** ADR у `main`; червоний прогін або вивід у PR; зелений `architecture` на `main`.
 
@@ -492,7 +529,8 @@ GRANT чи перевірку, яку він охороняє, запусти np
   - Vercel → Settings → Environment Variables → `SUPABASE_SECRET_KEY` лише для **Production** (не Preview) →
     Redeploy;
   - у тому самому PR — правка розділу «Секрети» вашого `AGENTS.md` («ключ — лише в `src/lib/supabase/admin.ts`,
-    у Vercel лише Production, бо …») і ADR.
+    у Vercel лише Production, бо …») і ADR. В описі PR — рядок «Поза межами типу «Реалізація» свідомо (домашка WS7,
+    E): AGENTS.md (Секрети)» для попередження CodeRabbit «Тип PR і межі змін».
   - Без Admin API ключа у Vercel немає, як і у WS6.
 - Пройдіть зріз на прод-URL під кожною роллю.
 
@@ -524,7 +562,7 @@ GRANT чи перевірку, яку він охороняє, запусти np
 Після кінця Нд 25.10 — `/requirements-sync` → PR «Оновлення вимог» → якщо PM змінив AC — зміна специфікації
 `clarify-<зріз2>` з MODIFIED / ADDED / REMOVED (як у WS6, крок 13) → реалізація або `відкладено` з посиланням на
 рішення PM. Якщо агент відповів «Вимоги актуальні» — рядок `/requirements-sync <YYYY-MM-DD>: Вимоги актуальні` у
-файлі здачі.
+файлі здачі. Дата — день запуску команди (26.10 чи пізніше), а не дата знімка з повідомлення агента.
 
 ## 11. Відхилення від PM — трек E
 

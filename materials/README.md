@@ -7,13 +7,14 @@
 
 | Файл тут | Куди у вашому репо | Навіщо |
 |---|---|---|
-| [`scripts/check-design-tokens.mjs`](scripts/check-design-tokens.mjs) | `scripts/check-design-tokens.mjs` | правило «лише токени»: hex, `bg-[#…]`, сирі палітри (`zinc-500`, `bg-white`), кольори в inline style поза `src/components/ui` і `globals.css`; виняток — коментар `design-ok: <причина>` |
-| [`scripts/check-server-boundary.mjs`](scripts/check-server-boundary.mjs) | `scripts/check-server-boundary.mjs` | правило «секретний ключ лише на сервері»: `SUPABASE_SECRET_KEY` лише в `src/lib/supabase/admin.ts` з `import "server-only"`, admin-клієнт імпортують лише серверні файли, жодного `NEXT_PUBLIC_*SECRET*` |
+| [`scripts/check-design-tokens.mjs`](scripts/check-design-tokens.mjs) | `scripts/check-design-tokens.mjs` | правило «лише токени»: hex, `bg-[#…]`, сирі палітри (`zinc-500`, `bg-white`), кольори всередині `style={{ … }}` поза `src/components/ui` і `globals.css`; виняток — коментар `design-ok: <причина>` |
+| [`scripts/check-server-boundary.mjs`](scripts/check-server-boundary.mjs) | `scripts/check-server-boundary.mjs` | правило «секретний ключ лише на сервері»: `SUPABASE_SECRET_KEY` у `src/` лише в `src/lib/supabase/admin.ts` з `import "server-only"`; admin-клієнт імпортують лише `actions.ts`, `route.ts` і файли з `"use server"`; жодного `NEXT_PUBLIC_*SECRET*`. Не додавайте `"use server"` у допоміжний модуль, щоб пройти перевірку: кожен його експорт стане публічним ендпойнтом, а роль перевіряють до admin-клієнта |
 | [`workflows/architecture.yml`](workflows/architecture.yml) | `.github/workflows/architecture.yml` | окремий workflow з двома jobs: «Дизайн-система: лише токени», «Секретний ключ лише на сервері». `ci.yml` не чіпаємо: на назвах його jobs тримається ruleset |
 | [`DESIGN.template.md`](DESIGN.template.md) | `DESIGN.md` у корені | шаблон дизайн-системи; `CLAUDE.md` імпортує `@DESIGN.md` |
 | [`adr/`](adr/) | — (формат для вашого `docs/decisions/NNNN-….md`) | два приклади ADR з іншого домену |
-| [`auth/confirm-route.example.ts`](auth/confirm-route.example.ts) | за потреби: `src/app/auth/confirm/route.ts` | маршрут `/auth/confirm` для запрошень (`verifyOtp` → сесія → `next`); потрібен, лише якщо ваш зріз запрошує користувачів |
-| [`auth/safe-next.example.ts`](auth/safe-next.example.ts) | разом з ним: `src/lib/auth/safe-next.ts` (+ тест у коментарі) | перевірка `next`: лише відносний шлях свого сайту, захист від open redirect |
+| [`auth/confirm-page.example.tsx`](auth/confirm-page.example.tsx) | за потреби: `src/app/auth/confirm/page.tsx` | сторінка `/auth/confirm` для запрошень: показує «Активувати акаунт» і посилання не витрачає (боти прев'ю відкривають його GET-запитом); потрібна, лише якщо ваш зріз запрошує користувачів |
+| [`auth/confirm-actions.example.ts`](auth/confirm-actions.example.ts) | разом з нею: `src/app/auth/confirm/actions.ts` | Server Action кнопки: `verifyOtp` → сесія → безпечний `next` (POST) |
+| [`auth/safe-next.example.ts`](auth/safe-next.example.ts) | разом з ними: `src/lib/auth/safe-next.ts` (+ тест у коментарі) | перевірка `next`: лише відносний шлях свого сайту, захист від open redirect |
 | [`slice2-hints.md`](slice2-hints.md) | — | кандидати зрізу 2 для кожного брифу й шаблони відмовних AC (для PM) |
 
 ## Команди
@@ -33,7 +34,8 @@ npm pkg set scripts.check:design="node scripts/check-design-tokens.mjs" \
 
 PowerShell: `$B = "https://raw.githubusercontent.com/koldovsky/2026-quitcode-07-fullstack-hw/main/materials"`, далі
 `curl.exe -sLo …` (у Windows PowerShell 5.1 `curl` — інша команда), `New-Item -ItemType Directory -Force
-.github/workflows` замість `mkdir -p`.
+.github/workflows` замість `mkdir -p`. Команду з `\` наприкінці рядка (`npm pkg set …`) пишіть одним рядком: `\` у
+PowerShell не переносить команду (перенесення там — backtick `` ` ``).
 
 У `package.json` з'являться два скрипти:
 
@@ -51,7 +53,10 @@ node scripts/check-design-tokens.mjs --json   # той самий результ
 node scripts/check-design-tokens.mjs --root <тека>   # перевірити інший клон
 ```
 
-Код виходу `1` при порушеннях — тому job у CI стає червоним. Обидва скрипти без залежностей: лише Node 24.
+Обидва скрипти перевіряють `src/`. Якщо теки `src/` немає (код у корені), вони перевіряють `app/`, `components/` і
+`lib/` і пишуть, що саме перевірили. Код виходу: `0` — порушень немає, `1` — є порушення (тому job у CI стає
+червоним), `2` — немає жодної з цих тек (запустіть з кореня проєкту або вкажіть `--root`). Обидва скрипти без
+залежностей: лише Node 24.
 
 `architecture.yml` запускає обидва скрипти на кожен PR і push у `main`. Ці jobs не входять в обов'язкові перевірки
 ruleset-у `solo-main`, тож злиття вони не блокують. Доказом для рубрики є зелений прогін у PR і на `main`. Новий

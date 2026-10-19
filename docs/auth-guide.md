@@ -83,10 +83,11 @@ export async function renameBooking(formData: FormData) {
 | | Publishable (`sb_publishable_…`) | Secret (`sb_secret_…`) |
 |---|---|---|
 | Де | браузер і сервер, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | лише сервер, `SUPABASE_SECRET_KEY` |
-| RLS | діє: запит іде від імені користувача з його сесією | **обходить RLS і GRANT** (роль `service_role`) |
+| RLS | діє: запит іде від імені користувача з його сесією | **обходить RLS** (роль `service_role` з `BYPASSRLS`); GRANT на таблиці все одно потрібні — див. [рецепт](#rls-рецепти) |
 | Хто бачить | будь-хто: ключ лежить у JS-бандлі | лише ваш сервер |
 
-- **Секретний ключ — лише в `src/lib/supabase/admin.ts`**, і першим рядком там `import "server-only"`. Тоді імпорт
+- **Секретний ключ у коді застосунку — лише в `src/lib/supabase/admin.ts`** (поза `src/` — лише локальні скрипти
+  `scripts/`, як `npm run users:demo`), і першим рядком там `import "server-only"`. Тоді імпорт
   цього файлу з Client Component зламає збірку. Встановлювати пакет `server-only` у Next.js необов'язково: Next.js
   обробляє цей імпорт сам. Vitest цієї домовленості не знає, тож `admin.ts` у тести не імпортуйте — тестуйте чисту
   логіку окремо.
@@ -120,6 +121,10 @@ export async function renameBooking(formData: FormData) {
   - admin-клієнт імпортують лише `actions.ts`, `route.ts` чи файли з `"use server"`;
   - жодної змінної `NEXT_PUBLIC_*SECRET*`.
 
+  Скрипт не бачить, чи перевірено роль, — це тест і рев'ю. Тому не додавайте `"use server"` у допоміжний модуль
+  (наприклад, `src/lib/users/invite.ts`), щоб пройти перевірку: кожен експорт такого файлу стає публічним
+  POST-ендпойнтом. Admin-клієнт викликайте з Server Action чи Route Handler, і лише після `requireRole(…)`.
+
 ## Запрошення посиланням
 
 Вбудований SMTP Supabase надсилає 2 листи на годину і лише членам вашого проєкту Supabase. Тому «запрошення» в
@@ -130,7 +135,8 @@ export async function renameBooking(formData: FormData) {
 адмін (Server Action)          Supabase Admin API                 запрошений
 requireRole("admin") ──► generateLink({ type: "invite", email }) ──► hashed_token
 посилання /auth/confirm?token_hash=…&type=invite&next=/account/password ──► адмін копіює й передає
-                                       /auth/confirm (Route Handler): verifyOtp → сесія ──► /account/password
+                                       GET /auth/confirm (сторінка): кнопка «Активувати акаунт», токен ще цілий
+                                       POST — дія activate (Server Action): verifyOtp → сесія ──► /account/password
                                        /account/password (Server Action): getClaims → updateUser({ password })
 ```
 
@@ -141,11 +147,18 @@ requireRole("admin") ──► generateLink({ type: "invite", email }) ──►
      додає `window.location.origin` і показує кнопку «Скопіювати».
    - Роль новому користувачу ставить адміністратор окремо: функцією бази або admin-клієнтом після перевірки. Не через
      `user_metadata` і не тригером, що читає метадані.
-2. **`/auth/confirm`** — Route Handler: `verifyOtp({ type, token_hash })` дає сесію. Параметр `next` приймаємо лише
-   як відносний шлях того самого сайту. Приклад з коментарями —
-   [`materials/auth/confirm-route.example.ts`](../materials/auth/confirm-route.example.ts), перевірка `next` з
-   тестом — [`materials/auth/safe-next.example.ts`](../materials/auth/safe-next.example.ts). Шлях `/auth/…` у
-   шаблоні вже публічний (`PUBLIC_PATHS`).
+2. **`/auth/confirm`** — сторінка «Активувати акаунт» і дія кнопки:
+   - **GET лише показує сторінку** з кнопкою «Активувати акаунт» (форма з прихованими `token_hash`, `type`, `next`) і
+     токен не витрачає. Посилання одноразове, а месенджери (Telegram, Slack…) і поштові сканери відкривають
+     посилання ботом для прев'ю — тобто роблять той самий GET. Якби `verifyOtp` стояв на GET, бот витратив би
+     посилання раніше за людину, і вона побачила б «Посилання недійсне».
+   - **POST — дія `activate`** (Server Action): `verifyOtp({ type, token_hash })` дає сесію, потім redirect на `next`.
+     Параметр `next` приймаємо лише як відносний шлях того самого сайту. `getClaims()` тут немає: сесії ще немає,
+     її створює саме `verifyOtp`.
+   - Приклади з коментарями — [`confirm-page.example.tsx`](../materials/auth/confirm-page.example.tsx) (сторінка),
+     [`confirm-actions.example.ts`](../materials/auth/confirm-actions.example.ts) (дія), перевірка `next` з тестом —
+     [`safe-next.example.ts`](../materials/auth/safe-next.example.ts). Шлях `/auth/…` у шаблоні вже публічний
+     (`PUBLIC_PATHS`).
 3. **`/account/password`** — сторінка під входом. Її Server Action: `getClaims()` → `supabase.auth.updateUser({
    password })` серверним клієнтом.
 
@@ -158,22 +171,32 @@ requireRole("admin") ──► generateLink({ type: "invite", email }) ──►
 
 Що з цього випливає:
 
-- **Посилання одноразове.** Повторний перехід тим самим посиланням, як і підроблений `token_hash`, дає
-  `403 otp_expired` — ведіть на `/login?error=link`. Строк дії — `otp_expiry` (у `supabase/config.toml` шаблону —
-  `3600`, тобто 1 год).
+- **Посилання одноразове.** Повторне використання посилання, як і підроблений `token_hash`, дає
+  `403 otp_expired` — ведіть на `/login?error=link`. Тому токен витрачає лише POST після натискання кнопки (див.
+  вище): боти прев'ю в месенджерах і сканери посилань роблять лише GET. Строк дії задають налаштування Auth хмарного
+  проєкту (за замовчуванням 1 год). `otp_expiry` у `supabase/config.toml` діє лише на локальний стек: `db-deploy`
+  переносить у хмару міграції, а не налаштування Auth.
 - **Повторне запрошення.** Для ще не активованої адреси повторний `generateLink` дає нове посилання. Для вже
-  зареєстрованої — `422 email_exists`. Перевіряйте «така адреса вже є» самі (за `profiles.email`, без урахування
-  регістру) до виклику admin-клієнта, а `email_exists` лишайте запасною перевіркою.
+  активованої — `422 email_exists`. Перевіряйте «така адреса вже є» самі (за `profiles.email`, без урахування
+  регістру) до виклику admin-клієнта, а `email_exists` лишайте запасною перевіркою. Зважте: профіль з'являється
+  одразу із запрошенням, тож ця перевірка блокує й повторне запрошення людини, яка ще не активувала акаунт (наприклад,
+  посилання прострочене). «Нове посилання» — окрема поведінка: її описує PM в AC, інакше в тексті помилки нового
+  посилання не обіцяйте. Якщо PM її описав: для адреси, яка ще не активована, — повторний `generateLink` типу
+  `invite` (перевірка «адреса вже є» тоді має пропускати неактивованих), а для решти —
+  `generateLink({ type: "recovery", email })` (дія `activate` приймає і `recovery`). Перевірте обидва випадки на
+  своєму проєкті.
 - **Своє посилання.** Ми будуємо посилання на свій `/auth/confirm` з `hashed_token`, а `action_link` з відповіді
   Supabase не використовуємо. Тому Site URL і Redirect URLs проєкту на запрошення не впливають.
 - **Посилання — живий вхід в акаунт.** Справжнє посилання не вставляйте в issue, PR чи чат і не показуйте на записі
   екрана. Для демонстрації — одноразовий тестовий акаунт `*@example.test`.
 - **Open redirect.** Без перевірки `next` ваш домен перенаправить людину на будь-який сайт: `next=//evil.example`
   (протокол-відносна адреса) або `next=https://…`. Ще й одразу після входу, коли людина довіряє сторінці. Приймаємо
-  лише `/…`, не `//` і не `/\`, і звіряємо origin після розбору адреси.
+  лише `/…`: не `//`, не `/\`, без пробілів і керівних символів (таб і перенесення рядка URL-парсер викидає). Після
+  розбору адреси звіряємо origin **і** перевіряємо, що шлях не почався з `//` чи `/\`: `/./` і `/../`
+  нормалізуються, і `/.//evil.example` стає `//evil.example`.
 - **Запасний шлях** (на випадок, якщо `type: "invite"` у вашому проєкті поверне помилку; у перевірці він не
   знадобився): `auth.admin.createUser({ email, email_confirm: true })` і `generateLink({ type: "recovery", email })`.
-  Далі все те саме: `/auth/confirm` приймає обидва типи.
+  Далі все те саме: дія `activate` на `/auth/confirm` приймає обидва типи.
 
 ## Роль — ніколи з `user_metadata`
 
@@ -240,7 +263,13 @@ create policy bookings_delete_admin on public.bookings for delete to authenticat
 
 Зміна ролі, рішення, переведення статусу — дії, де недостатньо «це мій рядок». Робимо їх однією функцією бази з
 перевіркою всередині. Правило шаблону: `security definer` — лише в схемі `private`. Виклик із застосунку
-(`supabase.rpc(…)`) іде через тонку обгортку в `public` з `security invoker`.
+(`supabase.rpc(…)`) іде через тонку обгортку в `public` з `security invoker`. Так зроблено й у демо: логіка зміни
+ролі — у функції схеми `private`, а `public.admin_set_role` — обгортка `security invoker`. Definer у `public` у
+домашці знімає бали.
+
+Що робить функція, крім перевірки адміністратора, вирішує матриця PM. Нижче — варіант «адміністратор може змінити
+роль і собі, але не понизити останнього адміністратора». Якщо PM записав «власну роль не змінює ніхто», додайте
+перевірку з коментаря в кроці 1.
 
 ```sql
 -- Логіка з правами власника функції: оминає column grant на role, тож перевіряє все сама.
@@ -257,6 +286,8 @@ begin
   if (select private.current_app_role()) is distinct from 'admin' then
     raise exception 'FORBIDDEN' using errcode = '42501';
   end if;
+  -- Якщо матриця PM каже «власну роль не змінює ніхто», тут же:
+  --   if p_target = (select auth.uid()) then raise exception 'SELF_ROLE' using errcode = '42501'; end if;
   if p_role not in ('member', 'admin') then
     raise exception 'INVALID_ROLE' using errcode = '22023';
   end if;
@@ -296,7 +327,9 @@ grant execute on function public.set_member_role(uuid, text) to authenticated;
 
 - **`set search_path = ''`** і повні імена (`public.profiles`) — інакше функцію з правами власника можна підмінити
   власним об'єктом з тим самим ім'ям.
-- **Коди помилок** (`FORBIDDEN`, `LAST_ADMIN`) Server Action перекладає в тексти з AC PM.
+- **Повідомлення помилок** Server Action перекладає в тексти з AC PM. Розрізняйте їх за `error.message`
+  (`FORBIDDEN`, `LAST_ADMIN`, `INVALID_ROLE`, `NOT_FOUND`), а не за `error.code`: там SQLSTATE (`42501`, `23514`…), і
+  `23514` дає й звичайне порушення `check`.
 - **Альтернатива** — Server Action з `requireRole("admin")` і admin-клієнтом. Вона теж правильна, якщо перевірка
   стоїть до admin-клієнта. Але тоді прямий виклик з консолі браузера захищає лише column grant, а «останнього
   адміністратора» доводиться перевіряти в коді без блокування. Вибір — тема для ADR.
@@ -321,8 +354,23 @@ grant execute on function public.set_member_role(uuid, text) to authenticated;
 
 **CVE-2025-48757** — масовий випадок застосунків, згенерованих AI-конструктором (Lovable). Таблиці без RLS або з
 хибним RLS, і дані були доступні будь-кому з публічним ключем із бандла. Висновок для нас: публічний ключ — не
-секрет, тож дані захищає лише база. Спробуйте самі: увійдіть у свій застосунок, створіть у консолі браузера клієнт
-Supabase з URL і publishable key (вони є в бандлі) і спробуйте змінити собі роль. Має прийти відмова.
+секрет, тож дані захищає лише база. Спробуйте самі: увійдіть у свій застосунок звичайним користувачем, відкрийте
+DevTools → Console і спробуйте змінити собі роль клієнтом із publishable key (URL і ключ — Dashboard → Project
+Settings → API Keys; обидва публічні). Важливо, щоб запит ішов **від імені вашої сесії**: `createBrowserClient` з
+`@supabase/ssr` бере її з cookie сторінки, як і шаблон. Звичайний `createClient` з `supabase-js` шукає сесію в
+`localStorage`, не знаходить її і працює як `anon`. Тоді відмова прийде через те, що в `anon` немає жодного GRANT, і
+нічого не доведе про column grant на `role`.
+
+```js
+const { createBrowserClient } = await import("https://esm.sh/@supabase/ssr@0.12.7");
+const sb = createBrowserClient(prompt("Project URL"), prompt("Publishable key"));
+const { data: { user } } = await sb.auth.getUser();                              // має бути ваш користувач, не null
+await sb.from("profiles").update({ role: "admin" }).eq("id", user.id).select();  // → 42501 permission denied for table profiles
+await sb.rpc("set_member_role", { p_target: user.id, p_role: "admin" });          // → FORBIDDEN (назва функції — ваша)
+(await sb.from("profiles").select("role").eq("id", user.id).single()).data.role; // роль не змінилась
+```
+
+Якщо `user` — `null`, сесії немає: результат перевірки нічого не означає.
 
 ## Тести доступу на PGlite
 
@@ -335,7 +383,7 @@ PGlite — справжній Postgres у процесі Vitest, без Docker. 
 - `asService(sql)` — в обхід RLS, щоб перевірити, що дані не змінились.
 
 ```ts
-it("AC-ACCESS-04: учасник не підвищує собі роль ні оновленням профілю, ні функцією", async () => {
+it("AC-ACCESS-03: учасник не підвищує собі роль ні оновленням профілю, ні функцією", async () => {
   await expect(
     t.asUser(MEMBER, "update public.profiles set role = 'admin' where id = $1", [MEMBER]),
   ).rejects.toThrow(/permission denied/); // column grant: role не можна оновлювати
@@ -353,7 +401,9 @@ it("AC-ACCESS-04: учасник не підвищує собі роль ні о
 
 Кожна Server Action, Route Handler і функція бази, яку написав агент:
 
-- [ ] **`getClaims()` першим кроком** (не `getSession()`); без claims — відмова без запису.
+- [ ] **`getClaims()` першим кроком** у Server Action і Route Handler (не `getSession()`); без claims — відмова без
+  запису. Виняток — дії, що сесію створюють (вхід, дія `activate` на `/auth/confirm`): там `signInWithPassword` чи
+  `verifyOtp`, а `next` — лише через `safeNextPath`. Функція бази бере роль через `private.current_app_role()`.
 - [ ] **Роль — з `profiles`** (через хелпер чи функцію бази), не з `user_metadata`, не з форми, не з cookie.
 - [ ] **Перевірка в самій дії,** а не лише в proxy, layout чи схованій кнопці.
 - [ ] **Вибірка обмежена власником чи межею з матриці** (RLS чи умова), а не лише `id` з форми — жодного IDOR.
@@ -366,8 +416,9 @@ it("AC-ACCESS-04: учасник не підвищує собі роль ні о
 - [ ] **Admin-клієнт** — лише з `admin.ts` (`import "server-only"`), лише після перевірки ролі й лише там, де без
   Admin API ніяк. `npm run check:boundary` зелений.
 - [ ] **Відповідь без зайвого:** вибрано лише потрібні колонки; помилка входу не підказує, чи існує email.
-- [ ] **Редирект за параметром** (`next`, `redirect_to`) — лише відносний шлях свого сайту.
+- [ ] **Редирект за параметром** (`next`, `redirect_to`) — лише відносний шлях свого сайту (`safeNextPath`).
+- [ ] **Одноразове посилання** витрачає лише POST після натискання кнопки, а не GET сторінки (боти прев'ю).
 - [ ] **Тест на кожен відмовний AC** (чужі дані, заборонена роль, не увійшов) перевіряє відмову і незмінні дані — і
   червоний, якщо прибрати політику.
-- [ ] **Перевірено руками** від імені іншого користувача (або з консолі браузера з publishable key) — прийшла
-  відмова, а не чужі дані.
+- [ ] **Перевірено руками** від імені іншого користувача (або з консолі браузера з publishable key і **вашою сесією**,
+  див. [CVE-2025-48757](#idor-і-випадок-cve-2025-48757)) — прийшла відмова, а не чужі дані.

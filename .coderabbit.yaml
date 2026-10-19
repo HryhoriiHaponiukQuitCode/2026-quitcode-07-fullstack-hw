@@ -80,10 +80,12 @@ reviews:
         (чужі дані / заборонена роль / не увійшов) і щонайменше 1 AC ID стану (інакше ⚠️); AC ID —
         AC-<2–12 великих латинських літер>-<дві цифри>; «Самоперевірка за чеклістом» —
         …/issues/N#issuecomment-M, …/blob/<SHA>/…#L<N> або …/commit/<sha>#commitcomment-M; «Питання, на які
-        ви відповіли» — …/issues/N або «питань не було»; «Зміни вимог із журналом змін» — коментар, коміт
-        чи файл або рівно «змін не було». Таблиця «Приймання на проді»: щонайменше 2 різні логіни
+        ви відповіли» — …/issues/N або «питань не було»; «Зміни вимог із журналом змін» — щонайменше одне
+        посилання на коментар, коміт чи файл («змін не було» — ⚠️: рубрика C вимагає щонайменше одну зміну, без
+        питань — «власне рішення PM»). Таблиця «Приймання на проді»: щонайменше 2 різні логіни
         розробників і щонайменше 2 різні ролі в кожного (або рядок «не прийнято: <причина, дата>» і план
-        приймання для бракуючої реалізації); у колонці «Роль (акаунт)» — лише адреси *@example.test; кожен
+        приймання для бракуючої реалізації); у колонці «Роль (акаунт)» — лише адреси *@example.test або
+        «не увійшов» без адреси; кожен
         ❌ має посилання на https://github.com/<dev>/<repo>/issues/N в репо розробника (owner ≠ «Ваше репо»
         — це нормально); кожен «✅ (тест)» — посилання …/blob/<sha>/… на тест.
         dev: «Рядок «Вимоги:» з docs/conformance.md на SHA» — дослівно
@@ -200,10 +202,12 @@ reviews:
           "Самоперевірка за чеклістом" link into "Ваше репо"; "Відмовні AC і AC про стан інтерфейсу" lists,
           per requirement, at least two refusal AC IDs of at least two different kinds (чужі дані /
           заборонена роль / не увійшов) and at least one UI-state AC ID; "Питання, на які ви відповіли" are
-          /issues/N links or "питань не було"; "Зміни вимог із журналом змін" is a link or exactly "змін
-          не було"; the "Приймання на проді" table has rows for at least two different developer logins
-          with at least two different roles each (or a row "не прийнято: <причина, дата>" plus an
-          acceptance plan for the missing implementation), accounts only as *@example.test addresses, every
+          /issues/N links or "питань не було"; "Зміни вимог із журналом змін" has at least one link to a
+          comment, commit or file ("змін не було" is a FAIL: rubric C requires at least one change, a "власне
+          рішення PM" if no questions came); the "Приймання на проді" table has rows for at least two
+          different developer logins with at least two different roles each (or a row "не прийнято:
+          <причина, дата>" plus an acceptance plan for the missing implementation), accounts only as
+          *@example.test addresses or "не увійшов" without an address, every
           ❌ row links to an /issues/N in a developer repository and every "✅ (тест)" row links to a
           /blob/<sha>/ test file.
           For dev: the field "Рядок «Вимоги:» з docs/conformance.md на SHA" reads exactly

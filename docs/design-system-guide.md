@@ -78,8 +78,9 @@ Design systems у Claude Design зараз — **beta на планах Pro, Max
 
 **Формат `DESIGN.md` з Google Labs** (alpha) — YAML-токени плюс markdown-обґрунтування. Його розділи: Overview,
 Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts. У нього є CLI `@google/design.md`: lint з
-перевіркою WCAG і export у CSS для Tailwind. Наш шаблон сумісний за змістом. Брати цей формат і CLI — за бажанням,
-рубрика їх не вимагає.
+перевіркою WCAG і export у CSS для Tailwind. Наш шаблон сумісний за розділами, але значення тримає в таблицях
+markdown, без YAML-токенів: щоб CLI перевірив контраст, додайте YAML-блок за форматом Google. Брати цей формат і
+CLI — за бажанням, рубрика їх не вимагає.
 
 ## Спільне для обох шляхів
 
@@ -119,10 +120,15 @@ Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts. У �
   --radius-md: calc(var(--radius) - 2px);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+@layer base {
+  * {
+    border-color: var(--border); /* інакше межа — колір тексту: Table і Card ставлять border-b без кольору */
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
 }
 ```
 
@@ -161,18 +167,25 @@ npx shadcn@latest add input label card table badge dialog select alert -y
   PostCSS. Створює `components.json` (аліаси `@/components/ui`, `@/lib/utils`), `src/lib/utils.ts` (функція `cn`),
   `src/components/ui/button.tsx`. Додає залежності `@base-ui/react`, `class-variance-authority`, `cn`, `lucide-react`,
   `shadcn`, `tw-animate-css`.
-- `--dry-run` у `init` немає (лише в `add`). Тому запускайте `init` у гілці: якщо щось не так, `git restore` і
-  `git clean` її повернуть.
-- **Після `init` — обов'язково виправте `globals.css`.** `init` переписує його своєю нейтральною палітрою і додає дві
+- `--dry-run` у `init` немає (лише в `add`). Тому перед `init` закомітьте в гілці все, що вже зроблено
+  (`DESIGN.md`, скрипти, `architecture.yml`, `package.json`, знімки «до»). Тоді невдалий `init` скасовують
+  `git restore .` і `git clean -fd` без втрат.
+- **Після `init` — обов'язково виправте `globals.css`.** `init` переписує його своєю нейтральною палітрою і додає три
   пастки:
-  1. **`@custom-variant dark (&:is(.dark *));`** перемикає `dark:` на клас `.dark`, а ваша тема слідує за системою.
+  1. **Темні значення — у блоці `.dark { … }`,** а блок `@media (prefers-color-scheme: dark)` шаблону `init`
+     прибирає. Клас `.dark` ніхто не ставить, тож ці значення не діють ніколи, а `dark:`-класи компонентів за
+     системною темою діють — виходить суміш. Перенесіть темні значення в `@media (prefers-color-scheme: dark)` і
+     видаліть блок `.dark`.
+  2. **`@custom-variant dark (&:is(.dark *));`** перемикає `dark:` на клас `.dark`, а ваша тема слідує за системою.
      Видаліть цей рядок.
-  2. **`--font-sans: var(--font-sans);`** — самопосилання, шрифт Geist губиться. Поверніть
+  3. **`--font-sans: var(--font-sans);`** — самопосилання, шрифт Geist губиться. Поверніть
      `var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif`.
 
   Значення `:root` і темної теми замініть своїми з `DESIGN.md`. Рядки `@import "tw-animate-css";` і
   `@import "shadcn/tailwind.css";` залиште: другий дає компонентам Base UI варіанти станів
-  (`data-open`, `data-closed` тощо).
+  (`data-open`, `data-closed` тощо). Залиште й `@layer base` з `* { border-color: var(--border); }`.
+- Пізніший `shadcn add` компонента з власними CSS-змінними (наприклад, sidebar чи chart) знову додає блок `.dark` і
+  рядок `@custom-variant dark` — приберіть їх так само. Компоненти з команди вище `globals.css` не змінюють.
 - Перевірка: `npm run build` (є `ƒ Proxy (Middleware)`), `npm run lint`, `npm run typecheck`.
 - **Компоненти змінюють лише в `src/components/ui/`.** Скрипт `check-design-tokens.mjs` цю теку пропускає: тут токени
   визначають вигляд. Але компонент shadcn сам бере кольори з токенів (`bg-primary`, `border-input`). Якщо ви вписуєте
@@ -187,7 +200,8 @@ npx shadcn@latest add input label card table badge dialog select alert -y
 - **`AGENTS.md`:** розділ «Дизайн-система» — текст у [walkthrough, крок 2.5](walkthrough-dev.md#25-правила-для-агента).
   Cursor читає `AGENTS.md`.
 - **Пріоритет `/design` у Claude Code:** ваш промпт > дизайн-система проєкту (`CLAUDE.md` чи theme-файл) > дефолти
-  скіла. Тобто без `DESIGN.md` у `CLAUDE.md` артборди йдуть за дефолтами.
+  скіла. Тому `@DESIGN.md` у `CLAUDE.md` — надійний спосіб дати скілу ваші правила (тон, стани, Do/Don't), а не лише
+  значення з theme-файлу; без жодного з них артборди йдуть за дефолтами скіла.
 
 ### Контраст: `frontend-design` проти дизайн-системи
 
@@ -200,12 +214,15 @@ npx shadcn@latest add input label card table badge dialog select alert -y
 ### Перевірка: `check:design`
 
 `scripts/check-design-tokens.mjs` ([`materials/scripts/`](../materials/scripts/check-design-tokens.mjs)) шукає в
-`src/` (поза `src/components/ui/` і `src/app/globals.css`):
+`src/` (поза `src/components/ui/` і `src/app/globals.css`). Якщо теки `src/` немає, скрипт перевіряє `app/`,
+`components/` і `lib/` у корені й пише, що саме перевірив; якщо немає жодної — завершується з кодом 2. Що шукає:
 
-1. hex-кольори (`#fff`, `#0f6b6e`);
+1. hex-кольори (`#fff`, `#0f6b6e`); якір у посиланні (`href="#add"`) — не колір;
 2. довільні кольори в класах (`bg-[#…]`, `text-[oklch(…)]`);
 3. сирі палітри Tailwind (`bg-zinc-900`, `text-rose-700`, `bg-white`, `text-black`);
-4. кольори в inline style (`style={{ color: "…" }}`).
+4. кольори в inline style — лише всередині `style={{ … }}` (`style={{ color: "…" }}`). Мапа статусів з класами
+   токенів, наприклад `{ label: "На розгляді", color: "bg-status-pending text-status-pending-foreground" }`, —
+   не порушення.
 
 Виняток — коментар `design-ok: <причина>` у тому самому рядку. Він для справжніх винятків (наприклад, колір
 стороннього віджета), а не щоб «прибрати червоне».
