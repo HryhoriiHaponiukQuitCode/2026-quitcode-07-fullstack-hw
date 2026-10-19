@@ -3,7 +3,8 @@
 - **Слайди воркшопу:** <https://koldovsky.github.io/2026-quitcode-07-fullstack-slidev/>
 - **Конспект заняття для учасників:** `docs/konspekt.md` — з'явиться 21.10
 - **Репо — ті самі, що у WS6, нових не створюємо:** PM працює у своєму `<pm>/<team-slug>-spec`, розробник — у своєму
-  `<dev>/<team-slug>`. Шаблони (для довідки): вимоги PM — <https://github.com/koldovsky/2026-quitcode-06-spec-template>,
+  `<dev>/<team-slug>` (для здачі — лише fork цього репо, як у WS6). Шаблони (для довідки):
+  вимоги PM — <https://github.com/koldovsky/2026-quitcode-06-spec-template>,
   проєкт розробника — <https://github.com/koldovsky/2026-quitcode-06-project-template>
 - **Покрокові інструкції:** [трек PM](docs/walkthrough-pm.md) · [трек розробника](docs/walkthrough-dev.md)
 - **Гайди:** [дизайн-система](docs/design-system-guide.md) · [автентифікація й авторизація](docs/auth-guide.md) ·
