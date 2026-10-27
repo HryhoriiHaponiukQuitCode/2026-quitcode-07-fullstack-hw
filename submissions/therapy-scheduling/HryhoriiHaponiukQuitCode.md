@@ -32,7 +32,7 @@
 - Архітектурне правило, крім `check:design` (D): job «Межа доступу: RLS, private і getClaims» (`node scripts/check-auth-boundary.mjs`) у architecture.yml; червоний прогін https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/actions/runs/40581723399, після revert зелений https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/actions/runs/40581894467 (PR https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/pull/28)
 - Акаунти для PM (E): pm-admin@example.test (admin), pm-scheduler@example.test (scheduler), pm-therapist@example.test (therapist). Паролі — PM у чаті
 - Скріни за ролями (E): https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/blob/ad46b18249d6cd3f469929fe050da0e145cf4acf/docs/img/roles/README.md
-- AC зрізу 2 (E): усі 60 AC зрізів 1–2 — «реалізовано» в https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/blob/ad46b18249d6cd3f469929fe050da0e145cf4acf/docs/conformance.md
+- AC зрізу 2 (E): як у https://github.com/HryhoriiHaponiukQuitCode/therapy-scheduling/blob/ad46b18249d6cd3f469929fe050da0e145cf4acf/docs/conformance.md — AC-CARD-01 (реалізовано), AC-CARD-02 (реалізовано), AC-CARD-03 (реалізовано), AC-CARD-04 (реалізовано), AC-CARD-05 (реалізовано), AC-CARD-06 (реалізовано), AC-CARD-07 (реалізовано), AC-CARD-08 (реалізовано), AC-CARD-09 (реалізовано), AC-CARD-10 (реалізовано), AC-CARD-11 (реалізовано), AC-CARD-12 (реалізовано), AC-CARD-13 (реалізовано), AC-CARD-14 (реалізовано), AC-CARD-15 (реалізовано), AC-CARD-16 (реалізовано); оновлення зрізу 1 у WS7: AC-HOLD-25 … AC-HOLD-44 (усі 20 — реалізовано); відкладених немає
 - Відхилення від PM (E): не надходило
 
 ## Бонус
